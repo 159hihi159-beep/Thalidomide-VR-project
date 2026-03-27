@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Thalidomide VR Experience</title>
+  <style>
+    body { margin:0; overflow:hidden; }
+    canvas { display:block; }
+    #info { position:absolute; top:10px; left:10px; color:black; font-family:sans-serif; }
+  </style>
+</head>
+<body>
+<div id="info">Click a molecule to see info</div>
+
+<!-- Three.js core -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
+<!-- OrbitControls -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+<!-- Loaders for OBJ + MTL -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/MTLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/OBJLoader.js"></script>
+
+<script>
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf5f5f5);
+
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0,2,5);
+
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff,0.8);
+  scene.add(ambientLight);
+  const dirLight = new THREE.DirectionalLight(0xffffff,1);
+  dirLight.position.set(5,5,5);
+  scene.add(dirLight);
+
+  // Controls
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  // Load MTL first, then OBJ
+  let rMol, sMol;
+  const mtlLoader = new THREE.MTLLoader();
+  mtlLoader.load('thalidomide.mtl', function(materials){
+    materials.preload();
+    const objLoader = new THREE.OBJLoader();
+    objLoader.setMaterials(materials);
+
+    objLoader.load('thalidomide.obj', function(object){
+      rMol = object.clone();
+      rMol.position.set(-1.5,1,0);
+      rMol.scale.set(0.3,0.3,0.3);
+      scene.add(rMol);
+
+      sMol = object.clone();
+      sMol.position.set(1.5,1,0);
+      sMol.scale.set(0.3,0.3,0.3);
+      scene.add(sMol);
+    });
+  });
+
+  // Raycaster for clicks
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  const infoDiv = document.getElementById('info');
+
+  window.addEventListener('click', function(event){
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    if(rMol && sMol){
+      const intersects = raycaster.intersectObjects([rMol,sMol], true);
+      if(intersects.length>0){
+        if(intersects[0].object.parent===rMol){
+          infoDiv.innerText = "R-Enantiomer: Therapeutic effect, correct orientation";
+        } else if(intersects[0].object.parent===sMol){
+          infoDiv.innerText = "S-Enantiomer: Toxic effect, wrong orientation";
+        }
+      }
+    }
+  });
+
+  // Animate
+  function animate(){
+    requestAnimationFrame(animate);
+    if(rMol) rMol.rotation.y += 0.01;
+    if(sMol) sMol.rotation.y -= 0.01;
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  // Resize
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+</body>
+</html>
